@@ -8,7 +8,7 @@ import com.richard.apihelpdesk.entity.User;
 
 public interface UserService {
 	
-	User findByEmail(String email);
+	Optional<User> findByEmail(String email);
 	
 	User createOrUpdate(User user);
 	
