@@ -22,4 +22,8 @@ public enum StatusEnum {
 		}
 	}
 
+	public boolean isAssigned() {
+		return this.equals(Assigned);
+	}
+
 }

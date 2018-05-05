@@ -31,6 +31,7 @@ import com.richard.apihelpdesk.entity.ChangeStatus;
 import com.richard.apihelpdesk.entity.Ticket;
 import com.richard.apihelpdesk.entity.User;
 import com.richard.apihelpdesk.entity.enums.StatusEnum;
+import com.richard.apihelpdesk.resource.dto.Summary;
 import com.richard.apihelpdesk.resource.response.Response;
 import com.richard.apihelpdesk.security.jwt.JwtTokenUtil;
 import com.richard.apihelpdesk.service.TicketService;
@@ -214,6 +215,111 @@ public class TicketResource {
 		response.setData(tickets);
 		return ResponseEntity.ok(response);
 	}
+	
+	@PutMapping(value = "{id}/{status}")
+	@PreAuthorize("hasAnyRole('CUSTOMER', 'TECHNICIAN')")
+	public ResponseEntity<Response<Ticket>> changeStatus(HttpServletRequest request, 
+														 @PathVariable("id") String id, 
+														 @PathVariable("status") String status, 
+														 @RequestBody Ticket ticket,
+														 BindingResult result) {
+		Response<Ticket> response = new Response<>();
+		
+		try {
+			validateChangeStatus(id, status, result);
+			Optional<Ticket> ticketOptional = ticketService.findById(id);
+			
+			if (result.hasErrors()) {
+				result.getAllErrors().forEach(error -> response.getErrors().add(error.getDefaultMessage()));
+				return ResponseEntity.badRequest().body(response);
+			}
+			
+			if (!ticketOptional.isPresent()) {
+				response.getErrors().add("Register not found id: " + id);
+				return ResponseEntity.badRequest().body(response);
+			}
+			
+			Ticket ticketCurrent = ticketOptional.get();
+			ticketCurrent.setStatus(StatusEnum.getStatus(status));
+			
+			User userRequest = userFromRequest(request);
+			
+			if (ticketCurrent.getStatus().isAssigned()) {
+				ticketCurrent.setAssigneUser(userRequest);
+			}
+			
+			Ticket ticketPersisted = ticketService.createOrUpdate(ticketCurrent);
+			
+			ChangeStatus changeStatus = new ChangeStatus();
+			changeStatus.setUserChange(userRequest);
+			changeStatus.setDateChange(new Date());
+			changeStatus.setStatus(StatusEnum.getStatus(status));
+			changeStatus.setTicket(ticketPersisted);
+			
+			ticketService.createChangeStatus(changeStatus);
+			response.setData(ticketPersisted);
+			
+		} catch (Exception e) {
+			response.getErrors().add(e.getMessage());
+			return ResponseEntity.badRequest().body(response);
+		}
+	
+		return ResponseEntity.ok(response);
+	}
+	
+	@GetMapping(value = "/summary")
+	@PreAuthorize("hasAnyRole('CUSTOMER','TECHNICIAN')")
+	public ResponseEntity<Response<Summary>> findSummary() {
+		Response<Summary> response = new Response<>();
+		Summary summary = new Summary();
+		
+		int amountNew = 0;
+		int amountResolved = 0;
+		int amountApproved = 0;
+		int amountDisapproved = 0;
+		int amountAssigned = 0;
+		int amountClosed = 0;
+		
+		Iterable<Ticket> tickets = ticketService.findAll();
+		
+		if (null != tickets) {
+			for (Iterator<Ticket> iterator = tickets.iterator(); iterator.hasNext();) {
+				Ticket ticket = (Ticket) iterator.next();
+				
+				switch (ticket.getStatus()) {
+				case New:
+					amountNew++;
+					break;
+				case Approved:
+					amountApproved++;
+					break;
+				case Assigned:
+					amountAssigned++;	
+					break;
+				case Closed:
+					amountClosed++;
+					break;
+				case Disapproved:
+					amountDisapproved++;
+					break;
+				case Resolved:
+					amountResolved++;
+					break;
+
+				}
+			}
+		}
+		
+		summary.setAmountNew(amountNew);
+		summary.setAmountApproved(amountApproved);
+		summary.setAmountAssigned(amountAssigned);
+		summary.setAmountClosed(amountClosed);
+		summary.setAmountDisapproved(amountDisapproved);
+		summary.setAmountResolved(amountResolved);
+		
+		response.setData(summary);
+		return ResponseEntity.ok(response);
+	}
 
 	private void validateCreateTicket(Ticket ticket, BindingResult result) {
 		
@@ -242,6 +348,18 @@ public class TicketResource {
 		
 		if (StringUtils.isBlank(ticket.getTitle())) {
 			result.addError(new ObjectError("Ticket", "Title no information"));
+		}
+		
+	}
+	
+	private void validateChangeStatus(String id, String status, BindingResult result) {
+		
+		if (StringUtils.isBlank(id)) {
+			result.addError(new ObjectError("Ticket", "Id no information"));
+		}
+		
+		if (StringUtils.isBlank(status)) {
+			result.addError(new ObjectError("Ticket", "Status no information"));
 		}
 		
 	}
