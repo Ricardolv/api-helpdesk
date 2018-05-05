@@ -3,12 +3,10 @@ package com.richard.apihelpdesk.service;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
-import org.springframework.stereotype.Component;
 
 import com.richard.apihelpdesk.entity.ChangeStatus;
 import com.richard.apihelpdesk.entity.Ticket;
 
-@Component
 public interface TicketService {
 	
 	Ticket createOrUpdate(Ticket ticket);

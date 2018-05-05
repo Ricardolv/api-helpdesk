@@ -137,7 +137,7 @@ public class TicketResource {
 		Iterable<ChangeStatus> changesCurrent = ticketService.listChangeStatus(ticketPesisted.getId());
 		
 		for (Iterator<ChangeStatus> iterator = changesCurrent.iterator(); iterator.hasNext();) {
-			ChangeStatus changeStatus = (ChangeStatus) iterator.next();
+			ChangeStatus changeStatus = iterator.next();
 			changeStatus.setTicket(null);
 			changes.add(changeStatus);
 		}
@@ -200,7 +200,7 @@ public class TicketResource {
 		} else {
 			User userRequest = userFromRequest(request);
 			if (userRequest.getProfile().isTechnician()) {
-				
+
 				if (assigned) {
 					tickets = ticketService.findByParameterAndAssignedUser(page, count, title, status, priority, userRequest.getId());
 				} else {
@@ -216,7 +216,7 @@ public class TicketResource {
 		return ResponseEntity.ok(response);
 	}
 	
-	@PutMapping(value = "{id}/{status}")
+	@PutMapping(value = "/{id}/{status}")
 	@PreAuthorize("hasAnyRole('CUSTOMER', 'TECHNICIAN')")
 	public ResponseEntity<Response<Ticket>> changeStatus(HttpServletRequest request, 
 														 @PathVariable("id") String id, 
