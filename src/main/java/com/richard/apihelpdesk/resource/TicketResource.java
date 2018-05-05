@@ -11,6 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -161,7 +162,58 @@ public class TicketResource {
 		return ResponseEntity.ok(new Response<String>());
 	
 	}
-
+	
+	@GetMapping(value = "/{page}/{count}")
+	@PreAuthorize("hasAnyRole('CUSTOMER','TECHNICIAN')")
+	public ResponseEntity<Response<Page<Ticket>>> findAll(HttpServletRequest request, @PathVariable("page") int page, @PathVariable("count") int count) {
+		Response<Page<Ticket>> response = new Response<>();
+		Page<Ticket> tickets = null;
+		
+		User userRequest = userFromRequest(request);
+		
+		if (userRequest.getProfile().isTechnician()) {
+			tickets = ticketService.listTicket(page, count);
+		} else if (userRequest.getProfile().isCustomer()) {
+			tickets = ticketService.findByCurrentUser(page, count, userRequest.getId());
+		}
+		
+		response.setData(tickets);
+		return ResponseEntity.ok(response);
+	}
+	
+	@GetMapping(value = "/{page}/{count}/{number}/{title}/{status}/{priority}/{assigned}")
+	@PreAuthorize("hasAnyRole('CUSTOMER','TECHNICIAN')")
+	public ResponseEntity<Response<Page<Ticket>>> findByParams(HttpServletRequest request, @PathVariable("page") int page, 
+															   @PathVariable("count") int count, @PathVariable("number") Integer number, 
+															   @PathVariable("title") String title, @PathVariable("status") String status, 
+															   @PathVariable("priority") String priority, @PathVariable("assigned") boolean assigned ) {
+		title = title.equals("uninformed") ? "" : title;
+		status = status.equals("uninformed") ? "" : status;
+		priority = priority.equals("uninformed") ? "" : priority;
+		
+		Response<Page<Ticket>> response = new Response<>();
+		Page<Ticket> tickets = null;
+		
+		if (number > 0) {
+			tickets = ticketService.findByNumber(page, count, number);
+		} else {
+			User userRequest = userFromRequest(request);
+			if (userRequest.getProfile().isTechnician()) {
+				
+				if (assigned) {
+					tickets = ticketService.findByParameterAndAssignedUser(page, count, title, status, priority, userRequest.getId());
+				} else {
+					tickets = ticketService.findByParameters(page, count, title, status, priority);
+				}
+				
+			} else if (userRequest.getProfile().isCustomer()) {
+				tickets = ticketService.findByParametersAndCurrentUser(page, count, title, status, priority, userRequest.getId());
+			}
+		}
+		
+		response.setData(tickets);
+		return ResponseEntity.ok(response);
+	}
 
 	private void validateCreateTicket(Ticket ticket, BindingResult result) {
 		
